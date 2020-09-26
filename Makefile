@@ -1,28 +1,27 @@
 SHELL := /bin/bash
 RM = rm --recursive --force
 CONFIG_SCRIPT = tools/configure.py
-.DEFAULT_GOAL := alllint
+.DEFAULT_GOAL := info
 JS_LINT = eslint --no-color
 CSS_LINT = csslint --quiet --ignore=ids,adjoining-classes
 # CSSOLDLINTFLAGS = --quiet --errors=empty-rules,import,errors --warnings=duplicate-background-images,compatible-vendor-prefixes,display-property-grouping,fallback-colors,duplicate-properties,shorthand,gradients,font-sizes,floats,overqualified-elements,import,regex-selectors,rules-count,unqualified-attributes,vendor-prefix,zero-units
 JSON_LINT = jsonlint --quiet
-PYTHON_LINT = pyLint --disable=C --reports=y
+PYTHON_LINT = pylint --disable=C,bad-indentation --reports=n
 # Can be overridden by env varis, such as ODSA_ENV='PROD' or PYTHON="python3.8"
 ODSA_ENV ?= DEV
 PYTHON ?= python
-VENVDIR = .pyVenv
-ACTIVATE = source $(VENVDIR)/bin/activate 
-VENV_PYTHON = $(VENVDIR)/bin/python
-PYTHON_FLAGS = -bb 
-# PYTHON_FLAGS += -Werror 
-
-
+ACTIVATE = source .pyVenv/bin/activate 
 # Changes for installs on native Windows:
 ifeq ($(OS),Windows_NT) 
-	SHELL = bash.exe
-	ACTIVATE = . $(VENVDIR)/Scripts/activate
-	VENV_PYTHON = $(VENVDIR)/Scripts/python
+	SHELL = cmd.exe
+	ACTIVATE = . .pyVenv/Scripts/activate 
 endif
+ifeq ($(SHELL),cmd.exe) 
+	ACTIVATE = .pyVenv\\Scripts\\activate.bat
+endif
+VENV_PYTHON = $(ACTIVATE) && python -bb
+# VENV_PYTHON = .pyVenv/Scripts/python 
+# VENV_PYTHON = python 
 
 JS_MINIFY = uglifyjs --comments '/^!|@preserve|@license|@cc_on/i' -- 
 CSS_MINIFY = cleancss
@@ -34,42 +33,35 @@ ifeq ($(strip $(ODSA_ENV)),DEV)
 	MINIFY_MSG := 'Completed: FAKE-Minify of many .js and .css files (just copied)'
 endif
 
-
 # For the python virtual environment:
-.PHONY: venv clean-venv pyVenvCheck 
-pyVenvCheck: venv
-	$(PYTHON) tools/pyVenvCheck.py
-venv: $(VENVDIR)/.pipMarker
-$(VENVDIR)/.pipMarker: $(VENVDIR)/.venvMarker requirements.txt
+.PHONY: venv clean-venv info
+venv .pyVenv: .pyVenv/.pipMarker
+.pyVenv/.pipMarker: .pyVenv/.venvMarker requirements.txt 
 	$(ACTIVATE) && pip install --requirement requirements.txt
 	touch $@
-$(VENVDIR)/.venvMarker: 
+.pyVenv/.venvMarker: 
 	@echo "Using env variable: PYTHON=$(PYTHON)"
-	@echo -n 'Making new $(VENVDIR) using: ' && $(PYTHON) --version
-	$(PYTHON) -m venv $(VENVDIR)
-	$(ACTIVATE) && python -m pip install --upgrade setuptools pip
+	@$(PYTHON) --version
+	$(PYTHON) -m venv .pyVenv
+	$(VENV_PYTHON) -m pip install --upgrade setuptools pip
 	touch $@
 clean-venv:
-	- $(RM) $(VENVDIR)
-	@ echo "Note: Use 'deactivate' if $(VENVDIR) is still activated"
+	-$(RM) .pyVenv
+	@echo "Note: Use 'deactivate' if .pyVenv is still activated"
 
 .PHONY: clean min pull Webserver 
 
-Webserver:
-	@-echo -n "System is: " & uname -s
-	@echo "Using env variable: PYTHON=$(PYTHON)"
-	exec $(PYTHON) server.py
+Webserver: 
+	$(PYTHON) server.py
 
 pull:
 	git pull
 	git submodule init
 	git submodule update
-	make --silent min
 
 clean:
 	- $(RM) *~
 	- $(RM) Books
-	@# Remove minified JS and CSS files
 	- $(RM) lib/*-min.*
 	- $(RM) Doc/*~
 	- $(RM) Scripts/*~
@@ -80,17 +72,16 @@ alllint: lint csslint jsonlint pyLint
 
 csslint:
 	@echo 'running csslint'
-	@$(CSS_LINT) AV/Background/*.css
-	@$(CSS_LINT) AV/Design/*.css
+	$(CSS_LINT) $(wildcard AV/Background/*.css)
+	$(CSS_LINT) $(wildcard AV/Design/*.css)
 
 TODOcsslint:
-	@$(CSS_LINT) AV/List/*.css
-	@$(CSS_LINT) AV/Sorting/*.css
-	@$(CSS_LINT) AV/Hashing/*.css
-	@$(CSS_LINT) AV/Searching/*.css
-	#@$(CSS_LINT) AV/*.css
-	@$(CSS_LINT) Doc/*.css
-	@$(CSS_LINT) lib/*.css
+	@$(CSS_LINT) $(wildcard AV/List/*.css)
+	@$(CSS_LINT) $(wildcard AV/Sorting/*.css)
+	@$(CSS_LINT) $(wildcard AV/Hashing/*.css)
+	@$(CSS_LINT) $(wildcard AV/Searching/*.css)
+	@$(CSS_LINT) $(wildcard lib/*.css)
+	@$(CSS_LINT) $(wildcard AV/*.css)
 
 lint: lintExe
 	@echo 'running eslint'
@@ -132,18 +123,20 @@ TODOlintlib:
 	-@$(JS_LINT) lib/conceptMap.js
 
 jsonlint:
-	@$(JSON_LINT) AV/Background/*.json
-	@$(JSON_LINT) AV/Design/*.json
-	@$(JSON_LINT) config/*.json
-	@$(JSON_LINT) config/Old/*.json
+	@$(JSON_LINT) $(wildcard AV/Background/*.json)
+	@$(JSON_LINT) $(wildcard config/*.json)
+	@$(JSON_LINT) $(wildcard config/Old/*.json)
+	@$(JSON_LINT) $(wildcard AV/Design/*.json)
 
 
-pyLint:
-	$(PYTHON_LINT) server.py tools/*.py RST/ODSAextensions/**/*.py 
+PYTHON_FILES := server.py $(wildcard tools/*.py)
+PYTHON_FILES += $(wildcard RST/ODSAextensions/*/*/*.py)
+pyLint: venv
+	$(ACTIVATE) && $(PYTHON_LINT) $(PYTHON_FILES)
 	# $(PYTHON_LINT) SourceCode/Python/**/*.py # These are python 2!!!
 
-rst2json: pyVenvCheck
-	python tools/rst2json.py
+rst2json: venv
+	$(VENV_PYTHON) tools/rst2json.py
 
 JS_FNAMES = odsaUtils odsaAV odsaKA odsaMOD gradebook registerbook JSAV
 JS_FILES = $(foreach fname, $(JS_FNAMES), lib/$(fname).js)
@@ -177,29 +170,28 @@ BOOKS = $(filter-out $(SLIDE_BOOKS),$(ALL_BOOKS))
 allbooks: Everything CS2 CS3 PL CS3slides CS3notes CS4104 VisFormalLang
 
 # A Static-Pattern Rule for making Books
-# TODO: can remove -bb option once all py3 str encoding in odsa is debugged 
-$(BOOKS): % : config/%.json min pyVenvCheck
-	python $(PYTHON_FLAGS) $(CONFIG_SCRIPT) $< --no-lms
+$(BOOKS): % : config/%.json min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) $< --no-lms
 	@echo "Created an eBook in Books/: $@"
 
-$(SLIDE_BOOKS) : % : config/%.json min pyVenvCheck
-	python $(PYTHON_FLAGS) $(CONFIG_SCRIPT) --slides $< --no-lms
+$(SLIDE_BOOKS) : % : config/%.json min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) --slides $< --no-lms
 	@echo "Created an Slide-eBook in Books/: $@"
 
 
 # Target eBooks with unique recipies below:::
-CS3notes: min pyVenvCheck
-	python $(CONFIG_SCRIPT) config/CS3slides.json -b CS3notes --no-lms
+CS3notes: min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) config/CS3slides.json -b CS3notes --no-lms
 
-CS3F18notes: min pyVenvCheck
-	python $(CONFIG_SCRIPT) config/CS3F18slides.json --no-lms -b CS3F18notes --no-lms
+CS3F18notes: min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) config/CS3F18slides.json --no-lms -b CS3F18notes --no-lms
 
-CS5040notes: min pyVenvCheck
-	python $(CONFIG_SCRIPT) config/CS5040slides.json -b CS5040notes --no-lms
+CS5040notes: min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) config/CS5040slides.json -b CS5040notes --no-lms
 
-CS5040MasterN: min pyVenvCheck
-	python $(CONFIG_SCRIPT) config/CS5040Master.json -b CS5040MasterN --no-lms
+CS5040MasterN: min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) config/CS5040Master.json -b CS5040MasterN --no-lms
 
-CS3SS18notes: min pyVenvCheck
-	python $(CONFIG_SCRIPT) config/CS3SS18slides.json -b CS3SS18notes --no-lms
+CS3SS18notes: min venv
+	$(VENV_PYTHON) $(CONFIG_SCRIPT) config/CS3SS18slides.json -b CS3SS18notes --no-lms
 
