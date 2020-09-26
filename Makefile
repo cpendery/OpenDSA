@@ -19,7 +19,7 @@ endif
 ifeq ($(SHELL),cmd.exe) 
 	ACTIVATE = .pyVenv\\Scripts\\activate.bat
 endif
-VENV_PYTHON = $(ACTIVATE) && python -bb
+VENV_PYTHON = $(ACTIVATE) && python 
 # VENV_PYTHON = .pyVenv/Scripts/python 
 # VENV_PYTHON = python 
 
@@ -48,6 +48,12 @@ venv .pyVenv: .pyVenv/.pipMarker
 clean-venv:
 	-$(RM) .pyVenv
 	@echo "Note: Use 'deactivate' if .pyVenv is still activated"
+info:
+	@echo OS is $(OS) and SHELL is $(SHELL)
+	@echo ODSA_ENV is $(ODSA_ENV) and PYTHON is $(PYTHON)
+	@$(PYTHON) --version
+	@$(PYTHON) -c "import platform; print(platform.platform())"
+	$(VENV_PYTHON) testEnv.py
 
 .PHONY: clean min pull Webserver 
 
