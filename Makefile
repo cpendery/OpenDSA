@@ -26,10 +26,12 @@ endif
 
 JS_MINIFY = uglifyjs --comments '/^!|@preserve|@license|@cc_on/i' -- 
 CSS_MINIFY = cleancss
+MINIFY_MSG := 'Completed: Minify of many .js and .css files'
 ifeq ($(strip $(ODSA_ENV)),DEV)
 	# fake-minify for easier debugging in DEV setups...
 	JS_MINIFY = cat 
 	CSS_MINIFY = cat
+	MINIFY_MSG := 'Completed: FAKE-Minify of many .js and .css files (just copied)'
 endif
 
 
@@ -152,11 +154,7 @@ CSS_FILES = $(foreach fname, $(CSS_FNAMES), lib/$(fname).css)
 CSS_MIN_FILES = $(foreach fname, $(CSS_FNAMES), lib/$(fname)-min.css)
 
 min: $(JS_MIN_FILES) $(CSS_MIN_FILES) 
-ifeq ($(strip $(ODSA_ENV)),DEV)
-	@echo 'Completed: FAKE-Minify of many .js and .css files (just copied)'
-else
-	@echo 'Completed: Minify of many .js and .css files'
-endif
+	@echo $(MINIFY_MSG)
 
 lib/%-min.js:: lib/%.js
 	@$(JS_MINIFY) $^ > $@
