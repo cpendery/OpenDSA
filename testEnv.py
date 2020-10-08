@@ -17,9 +17,9 @@ joinedPath = ';'.join(sys.path)
 
 def isInPath(s):
 	print(s in joinedPath, ":", s, "in sys.path")
-isInPath("hieroglyph\\src")
-isInPath(".pyVenv;")
-isInPath(".pyVenv\\lib\\site-packages")
+isInPath("hieroglyph" + os.sep + "src")
+isInPath(".pyVenv")
+isInPath(".pyVenv" + os.sep + "lib" + os.sep + "site-packages")
 
 # print("sys.path=")
 # pprint(sys.path)
