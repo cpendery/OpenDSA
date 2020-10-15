@@ -11,6 +11,14 @@ PYTHON_LINT = pylint --disable=C,bad-indentation --reports=n
 ODSA_ENV ?= DEV
 PYTHON ?= python
 ACTIVATE = source .pyVenv/bin/activate 
+# If OS is not obvious to make, then try another identifier
+ifeq ($(OS),)
+	OS = $(shell uname -s)
+endif
+# OSX and Darwin don't support long command options...
+ifeq ($(OS),Darwin) 
+	RM = rm -rf
+endif
 # Changes for installs on native Windows:
 ifeq ($(OS),Windows_NT) 
 	SHELL = cmd.exe
